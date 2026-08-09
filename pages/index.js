@@ -237,6 +237,7 @@ export default function Home() {
       lastPhase: null,
       lastCountdownSecond: null,
       lastLobbyPlayerCount: null,
+      lastUiClickSoundAt: 0,
     };
 
     const SOUND = {
@@ -245,6 +246,7 @@ export default function Home() {
       timerAudio: null,
       revealAudio: null,
       joinAudio: null,
+      uiClickHandler: null,
     };
 
     function escapeHtml(str) {
@@ -344,7 +346,35 @@ export default function Home() {
     }
 
     function playClickSound() {
-      playTone({ freq: 520, duration: 0.06, type: "triangle", gain: 0.02 });
+      const now = Date.now();
+      if (now - S.lastUiClickSoundAt < 80) return;
+      S.lastUiClickSoundAt = now;
+      playTone({ freq: 620, duration: 0.045, type: "triangle", gain: 0.04 });
+      playTone({
+        freq: 780,
+        duration: 0.04,
+        type: "triangle",
+        gain: 0.03,
+        delay: 0.02,
+      });
+    }
+
+    function attachUiClickSound() {
+      if (SOUND.uiClickHandler) return;
+      SOUND.uiClickHandler = (event) => {
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+        const clickable = target.closest(".qb-btn, .qb-link");
+        if (!clickable) return;
+        playClickSound();
+      };
+      document.addEventListener("click", SOUND.uiClickHandler, true);
+    }
+
+    function detachUiClickSound() {
+      if (!SOUND.uiClickHandler) return;
+      document.removeEventListener("click", SOUND.uiClickHandler, true);
+      SOUND.uiClickHandler = null;
     }
 
     function playOptionSelectSound() {
@@ -1237,6 +1267,8 @@ export default function Home() {
     window.submitJoin = submitJoin;
     window.playerAnswer = playerAnswer;
 
+    attachUiClickSound();
+
     render();
 
     return () => {
@@ -1253,6 +1285,7 @@ export default function Home() {
       delete window.hostNewGame;
       delete window.submitJoin;
       delete window.playerAnswer;
+      detachUiClickSound();
     };
   }, []);
 
