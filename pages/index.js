@@ -267,6 +267,26 @@ export default function Home() {
       return Math.round(500 + 500 * frac);
     }
 
+    function getRemainingMs() {
+      if (!S.room || !S.room.duration) return DURATION;
+      if (!S.room.startTime) return S.room.duration;
+      const elapsed = Date.now() - S.room.startTime;
+      return Math.max(0, S.room.duration - elapsed);
+    }
+
+    function getTimerUiState() {
+      const duration = S.room && S.room.duration ? S.room.duration : DURATION;
+      const remaining = getRemainingMs();
+      const secs = Math.max(0, Math.ceil(remaining / 1000));
+      const circumference = 2 * Math.PI * 26;
+      const frac = Math.max(0, remaining / duration);
+      return {
+        secs,
+        dash: `${circumference * frac} ${circumference}`,
+        stroke: secs <= 5 ? "var(--coral)" : "var(--gold)",
+      };
+    }
+
     async function storageGet(key) {
       try {
         const res = await fetch(`/api/storage/${encodeURIComponent(key)}`);
@@ -748,6 +768,7 @@ export default function Home() {
         const total = S.room.questions.length;
         const answeredCount = S.room.answeredCount || 0;
         const playerCount = (S.players || []).length;
+        const timer = getTimerUiState();
         return `
           <div class="qb-card">
             <div class="qb-qtop">
@@ -757,9 +778,9 @@ export default function Home() {
               <div class="qb-ring-wrap">
                 <svg viewBox="0 0 64 64">
                   <circle class="qb-ring-track" cx="32" cy="32" r="26"></circle>
-                  <circle id="qb-ring-bar" class="qb-ring-bar" cx="32" cy="32" r="26" stroke-dasharray="163.4 163.4"></circle>
+                  <circle id="qb-ring-bar" class="qb-ring-bar" cx="32" cy="32" r="26" stroke-dasharray="${timer.dash}" style="stroke:${timer.stroke};"></circle>
                 </svg>
-                <div class="qb-ring-num" id="qb-ring-num">15</div>
+                <div class="qb-ring-num" id="qb-ring-num">${timer.secs}</div>
               </div>
             </div>
             <div class="qb-question">${escapeHtml(q.q)}</div>
@@ -862,6 +883,7 @@ export default function Home() {
       playerQuestion() {
         const q = S.room.questions[S.room.qIndex];
         const total = S.room.questions.length;
+        const timer = getTimerUiState();
         return `
           <div class="qb-card">
             <div class="qb-qtop">
@@ -869,9 +891,9 @@ export default function Home() {
               <div class="qb-ring-wrap">
                 <svg viewBox="0 0 64 64">
                   <circle class="qb-ring-track" cx="32" cy="32" r="26"></circle>
-                  <circle id="qb-ring-bar" class="qb-ring-bar" cx="32" cy="32" r="26" stroke-dasharray="163.4 163.4"></circle>
+                  <circle id="qb-ring-bar" class="qb-ring-bar" cx="32" cy="32" r="26" stroke-dasharray="${timer.dash}" style="stroke:${timer.stroke};"></circle>
                 </svg>
-                <div class="qb-ring-num" id="qb-ring-num">15</div>
+                <div class="qb-ring-num" id="qb-ring-num">${timer.secs}</div>
               </div>
             </div>
             <div class="qb-question">${escapeHtml(q.q)}</div>
