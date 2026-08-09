@@ -244,6 +244,7 @@ export default function Home() {
       enabled: true,
       timerAudio: null,
       revealAudio: null,
+      joinAudio: null,
     };
 
     function escapeHtml(str) {
@@ -369,14 +370,17 @@ export default function Home() {
     }
 
     function playPlayerJoinSound() {
-      playTone({ freq: 740, duration: 0.06, type: "triangle", gain: 0.03 });
-      playTone({
-        freq: 988,
-        duration: 0.09,
-        type: "triangle",
-        gain: 0.035,
-        delay: 0.06,
-      });
+      const ok = playAudioFile("joinAudio", "/sounds/join.mp3");
+      if (!ok) {
+        playTone({ freq: 740, duration: 0.06, type: "triangle", gain: 0.03 });
+        playTone({
+          freq: 988,
+          duration: 0.09,
+          type: "triangle",
+          gain: 0.035,
+          delay: 0.06,
+        });
+      }
     }
 
     function playRevealSound() {
