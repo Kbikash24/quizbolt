@@ -318,6 +318,17 @@ export default function Home() {
       playTone({ freq: 520, duration: 0.06, type: "triangle", gain: 0.02 });
     }
 
+    function playOptionSelectSound() {
+      playTone({ freq: 560, duration: 0.05, type: "triangle", gain: 0.03 });
+      playTone({
+        freq: 720,
+        duration: 0.06,
+        type: "triangle",
+        gain: 0.025,
+        delay: 0.04,
+      });
+    }
+
     function playQuestionStartSound() {
       playTone({ freq: 440, duration: 0.08, type: "triangle", gain: 0.03 });
       playTone({
@@ -326,6 +337,17 @@ export default function Home() {
         type: "triangle",
         gain: 0.035,
         delay: 0.08,
+      });
+    }
+
+    function playRevealSound() {
+      playTone({ freq: 480, duration: 0.07, type: "square", gain: 0.025 });
+      playTone({
+        freq: 360,
+        duration: 0.1,
+        type: "square",
+        gain: 0.02,
+        delay: 0.06,
       });
     }
 
@@ -469,8 +491,7 @@ export default function Home() {
         );
         barEl.style.stroke = secs <= 5 ? "var(--coral)" : "var(--gold)";
         if (
-          S.role === "player" &&
-          S.view === "playerQuestion" &&
+          (S.view === "playerQuestion" || S.view === "hostQuestion") &&
           secs > 0 &&
           secs <= 5 &&
           secs !== S.lastCountdownSecond
@@ -593,11 +614,15 @@ export default function Home() {
         S.lastCountdownSecond = null;
         if (nextPhase === "question") {
           playQuestionStartSound();
-        } else if (nextPhase === "reveal" && S.role === "player") {
-          const stats = S.room.revealStats || { correctIdx: null };
-          const isCorrect = S.chosenIdx !== -1 && S.chosenIdx === stats.correctIdx;
-          if (isCorrect) playCorrectSound();
-          else playWrongSound();
+        } else if (nextPhase === "reveal") {
+          playRevealSound();
+          if (S.role === "player") {
+            const stats = S.room.revealStats || { correctIdx: null };
+            const isCorrect =
+              S.chosenIdx !== -1 && S.chosenIdx === stats.correctIdx;
+            if (isCorrect) playCorrectSound();
+            else playWrongSound();
+          }
         } else if (nextPhase === "finished") {
           playGameOverSound();
         }
@@ -637,7 +662,7 @@ export default function Home() {
     }
 
     async function hostStart() {
-      playClickSound();
+      playQuestionStartSound();
       if (!S.players || S.players.length === 0) return;
       S.room.phase = "question";
       S.room.qIndex = 0;
@@ -648,7 +673,7 @@ export default function Home() {
     }
 
     async function hostReveal() {
-      playClickSound();
+      playRevealSound();
       const code = S.code;
       const qIndex = S.room.qIndex;
       const keys = await storageList(`ans:${code}:${qIndex}:`);
@@ -681,11 +706,12 @@ export default function Home() {
     }
 
     async function hostNext() {
-      playClickSound();
       const nextIdx = S.room.qIndex + 1;
       if (nextIdx >= S.room.questions.length) {
+        playClickSound();
         S.room.phase = "finished";
       } else {
+        playQuestionStartSound();
         S.room.phase = "question";
         S.room.qIndex = nextIdx;
         S.room.startTime = Date.now();
@@ -714,6 +740,8 @@ export default function Home() {
         pollHandle: null,
         timerHandle: null,
         numQuestions: 10,
+        lastPhase: null,
+        lastCountdownSecond: null,
       };
       render();
     }
@@ -762,7 +790,7 @@ export default function Home() {
 
     async function playerAnswer(idx) {
       if (S.answered || S.room.phase !== "question") return;
-      playClickSound();
+      playOptionSelectSound();
       S.answered = true;
       S.chosenIdx = idx;
       const elapsed = Date.now() - (S.room.startTime || Date.now());
