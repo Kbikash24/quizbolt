@@ -234,6 +234,13 @@ export default function Home() {
       pollHandle: null,
       timerHandle: null,
       numQuestions: 10,
+      lastPhase: null,
+      lastCountdownSecond: null,
+    };
+
+    const SOUND = {
+      ctx: null,
+      enabled: true,
     };
 
     function escapeHtml(str) {
@@ -265,6 +272,105 @@ export default function Home() {
     function computePoints(elapsed, duration) {
       const frac = Math.max(0, 1 - elapsed / duration);
       return Math.round(500 + 500 * frac);
+    }
+
+    function ensureAudioContext() {
+      if (!SOUND.enabled) return null;
+      if (!SOUND.ctx) {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return null;
+        SOUND.ctx = new AudioCtx();
+      }
+      if (SOUND.ctx.state === "suspended") {
+        SOUND.ctx.resume();
+      }
+      return SOUND.ctx;
+    }
+
+    function playTone({
+      freq = 440,
+      duration = 0.12,
+      type = "sine",
+      gain = 0.04,
+      delay = 0,
+    }) {
+      const ctx = ensureAudioContext();
+      if (!ctx) return;
+      const osc = ctx.createOscillator();
+      const amp = ctx.createGain();
+      const start = ctx.currentTime + delay;
+      const end = start + duration;
+
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, start);
+
+      amp.gain.setValueAtTime(0.0001, start);
+      amp.gain.exponentialRampToValueAtTime(gain, start + 0.01);
+      amp.gain.exponentialRampToValueAtTime(0.0001, end);
+
+      osc.connect(amp);
+      amp.connect(ctx.destination);
+      osc.start(start);
+      osc.stop(end + 0.01);
+    }
+
+    function playClickSound() {
+      playTone({ freq: 520, duration: 0.06, type: "triangle", gain: 0.02 });
+    }
+
+    function playQuestionStartSound() {
+      playTone({ freq: 440, duration: 0.08, type: "triangle", gain: 0.03 });
+      playTone({
+        freq: 660,
+        duration: 0.11,
+        type: "triangle",
+        gain: 0.035,
+        delay: 0.08,
+      });
+    }
+
+    function playCorrectSound() {
+      playTone({ freq: 587, duration: 0.08, type: "sine", gain: 0.035 });
+      playTone({
+        freq: 784,
+        duration: 0.12,
+        type: "sine",
+        gain: 0.045,
+        delay: 0.08,
+      });
+    }
+
+    function playWrongSound() {
+      playTone({ freq: 320, duration: 0.12, type: "sawtooth", gain: 0.03 });
+      playTone({
+        freq: 240,
+        duration: 0.14,
+        type: "sawtooth",
+        gain: 0.03,
+        delay: 0.08,
+      });
+    }
+
+    function playCountdownTickSound() {
+      playTone({ freq: 900, duration: 0.04, type: "square", gain: 0.018 });
+    }
+
+    function playGameOverSound() {
+      playTone({ freq: 523, duration: 0.08, type: "triangle", gain: 0.03 });
+      playTone({
+        freq: 659,
+        duration: 0.1,
+        type: "triangle",
+        gain: 0.035,
+        delay: 0.08,
+      });
+      playTone({
+        freq: 784,
+        duration: 0.12,
+        type: "triangle",
+        gain: 0.04,
+        delay: 0.17,
+      });
     }
 
     function parseStoredRecord(raw) {
@@ -362,7 +468,18 @@ export default function Home() {
           `${circumference * frac} ${circumference}`,
         );
         barEl.style.stroke = secs <= 5 ? "var(--coral)" : "var(--gold)";
+        if (
+          S.role === "player" &&
+          S.view === "playerQuestion" &&
+          secs > 0 &&
+          secs <= 5 &&
+          secs !== S.lastCountdownSecond
+        ) {
+          S.lastCountdownSecond = secs;
+          playCountdownTickSound();
+        }
         if (remaining <= 0 && S.role === "player" && !S.answered) {
+          S.lastCountdownSecond = null;
           S.answered = true;
           S.chosenIdx = -1;
           render();
@@ -444,6 +561,7 @@ export default function Home() {
 
     async function pollTick() {
       if (!S.code) return;
+      const previousPhase = S.lastPhase;
       await refreshRoom();
       if (!S.room) {
         render();
@@ -469,11 +587,28 @@ export default function Home() {
           await refreshPlayers();
       }
 
+      const nextPhase = S.room.phase;
+      if (nextPhase !== previousPhase) {
+        S.lastPhase = nextPhase;
+        S.lastCountdownSecond = null;
+        if (nextPhase === "question") {
+          playQuestionStartSound();
+        } else if (nextPhase === "reveal" && S.role === "player") {
+          const stats = S.room.revealStats || { correctIdx: null };
+          const isCorrect = S.chosenIdx !== -1 && S.chosenIdx === stats.correctIdx;
+          if (isCorrect) playCorrectSound();
+          else playWrongSound();
+        } else if (nextPhase === "finished") {
+          playGameOverSound();
+        }
+      }
+
       syncViewToPhase();
       render();
     }
 
     async function createRoom() {
+      playClickSound();
       S.error = "";
       let code = genCode();
       for (let i = 0; i < 6; i += 1) {
@@ -496,11 +631,13 @@ export default function Home() {
       S.role = "host";
       S.view = "hostLobby";
       S.lastSeenQIndex = -1;
+      S.lastPhase = room.phase;
       render();
       startPolling();
     }
 
     async function hostStart() {
+      playClickSound();
       if (!S.players || S.players.length === 0) return;
       S.room.phase = "question";
       S.room.qIndex = 0;
@@ -511,6 +648,7 @@ export default function Home() {
     }
 
     async function hostReveal() {
+      playClickSound();
       const code = S.code;
       const qIndex = S.room.qIndex;
       const keys = await storageList(`ans:${code}:${qIndex}:`);
@@ -543,6 +681,7 @@ export default function Home() {
     }
 
     async function hostNext() {
+      playClickSound();
       const nextIdx = S.room.qIndex + 1;
       if (nextIdx >= S.room.questions.length) {
         S.room.phase = "finished";
@@ -580,6 +719,7 @@ export default function Home() {
     }
 
     async function joinRoom(name, codeInput) {
+      playClickSound();
       S.error = "";
       const code = (codeInput || "").toUpperCase().trim();
       const trimmedName = (name || "").trim().slice(0, 20);
@@ -614,6 +754,7 @@ export default function Home() {
       S.role = "player";
       S.room = room;
       S.lastSeenQIndex = room.qIndex;
+      S.lastPhase = room.phase;
       syncViewToPhase();
       render();
       startPolling();
@@ -621,6 +762,7 @@ export default function Home() {
 
     async function playerAnswer(idx) {
       if (S.answered || S.room.phase !== "question") return;
+      playClickSound();
       S.answered = true;
       S.chosenIdx = idx;
       const elapsed = Date.now() - (S.room.startTime || Date.now());
@@ -635,6 +777,7 @@ export default function Home() {
     }
 
     function goLanding() {
+      playClickSound();
       stopPolling();
       stopTimerLoop();
       S = {
@@ -652,20 +795,25 @@ export default function Home() {
         pollHandle: null,
         timerHandle: null,
         numQuestions: 10,
+        lastPhase: null,
+        lastCountdownSecond: null,
       };
       render();
     }
     function goHostSetup() {
+      playClickSound();
       S.view = "hostSetup";
       S.error = "";
       render();
     }
     function goJoinForm() {
+      playClickSound();
       S.view = "joinForm";
       S.error = "";
       render();
     }
     function setNumQuestions(n) {
+      playClickSound();
       S.numQuestions = n;
       render();
     }
