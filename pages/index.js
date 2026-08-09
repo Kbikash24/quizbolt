@@ -267,6 +267,19 @@ export default function Home() {
       return Math.round(500 + 500 * frac);
     }
 
+    function parseStoredRecord(raw) {
+      if (raw == null) return null;
+      if (typeof raw === "string") {
+        try {
+          return JSON.parse(raw);
+        } catch {
+          return null;
+        }
+      }
+      if (typeof raw === "object") return raw;
+      return null;
+    }
+
     function getRemainingMs() {
       if (!S.room || !S.room.duration) return DURATION;
       if (!S.room.startTime) return S.room.duration;
@@ -383,7 +396,8 @@ export default function Home() {
 
     async function refreshRoom() {
       const raw = await storageGet(`room:${S.code}`);
-      if (raw) S.room = JSON.parse(raw);
+      const room = parseStoredRecord(raw);
+      if (room) S.room = room;
     }
 
     async function refreshPlayers() {
@@ -391,8 +405,8 @@ export default function Home() {
       const players = [];
       for (const k of keys) {
         const raw = await storageGet(k);
-        if (raw) {
-          const p = JSON.parse(raw);
+        const p = parseStoredRecord(raw);
+        if (p) {
           const pid = k.slice(`player:${S.code}:`.length);
           players.push({
             id: pid,
@@ -505,21 +519,16 @@ export default function Home() {
       let correctCount = 0;
       for (const k of keys) {
         const raw = await storageGet(k);
-        if (!raw) continue;
-        let a;
-        try {
-          a = JSON.parse(raw);
-        } catch {
-          continue;
-        }
+        const a = parseStoredRecord(raw);
+        if (!a) continue;
         answeredCount += 1;
         const isCorrect = a.choice === correctIdx;
         if (isCorrect) correctCount += 1;
         const pts = isCorrect ? computePoints(a.time, S.room.duration) : 0;
         const pid = k.slice(`ans:${code}:${qIndex}:`.length);
         const pRaw = await storageGet(`player:${code}:${pid}`);
-        if (pRaw) {
-          const p = JSON.parse(pRaw);
+        const p = parseStoredRecord(pRaw);
+        if (p) {
           p.score = (p.score || 0) + pts;
           p.lastPoints = pts;
           p.lastCorrect = isCorrect;
@@ -590,7 +599,12 @@ export default function Home() {
         render();
         return;
       }
-      const room = JSON.parse(raw);
+      const room = parseStoredRecord(raw);
+      if (!room) {
+        S.error = "Room data is corrupted. Create a new room.";
+        render();
+        return;
+      }
       const playerId = `p_${Math.random().toString(36).slice(2, 9)}`;
       const player = { name: trimmedName, score: 0, joinedAt: Date.now() };
       await storageSet(`player:${code}:${playerId}`, JSON.stringify(player));
