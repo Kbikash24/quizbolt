@@ -236,6 +236,7 @@ export default function Home() {
       numQuestions: 10,
       lastPhase: null,
       lastCountdownSecond: null,
+      lastLobbyPlayerCount: null,
     };
 
     const SOUND = {
@@ -364,6 +365,17 @@ export default function Home() {
         type: "triangle",
         gain: 0.035,
         delay: 0.08,
+      });
+    }
+
+    function playPlayerJoinSound() {
+      playTone({ freq: 740, duration: 0.06, type: "triangle", gain: 0.03 });
+      playTone({
+        freq: 988,
+        duration: 0.09,
+        type: "triangle",
+        gain: 0.035,
+        delay: 0.06,
       });
     }
 
@@ -632,6 +644,19 @@ export default function Home() {
         if (S.room.phase === "lobby" || S.room.phase === "finished")
           await refreshPlayers();
         if (S.room.phase === "question") await refreshAnsweredCount();
+
+        if (S.room.phase === "lobby") {
+          if (S.lastLobbyPlayerCount == null) {
+            S.lastLobbyPlayerCount = S.players.length;
+          } else if (S.players.length > S.lastLobbyPlayerCount) {
+            playPlayerJoinSound();
+            S.lastLobbyPlayerCount = S.players.length;
+          } else {
+            S.lastLobbyPlayerCount = S.players.length;
+          }
+        } else {
+          S.lastLobbyPlayerCount = null;
+        }
       } else {
         if (
           S.room.phase === "lobby" ||
@@ -690,6 +715,7 @@ export default function Home() {
       S.view = "hostLobby";
       S.lastSeenQIndex = -1;
       S.lastPhase = room.phase;
+      S.lastLobbyPlayerCount = 0;
       render();
       startPolling();
     }
@@ -775,6 +801,7 @@ export default function Home() {
         numQuestions: 10,
         lastPhase: null,
         lastCountdownSecond: null,
+        lastLobbyPlayerCount: null,
       };
       render();
     }
@@ -858,6 +885,7 @@ export default function Home() {
         numQuestions: 10,
         lastPhase: null,
         lastCountdownSecond: null,
+        lastLobbyPlayerCount: null,
       };
       render();
     }
