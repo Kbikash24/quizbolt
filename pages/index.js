@@ -241,6 +241,8 @@ export default function Home() {
     const SOUND = {
       ctx: null,
       enabled: true,
+      timerAudio: null,
+      revealAudio: null,
     };
 
     function escapeHtml(str) {
@@ -314,6 +316,31 @@ export default function Home() {
       osc.stop(end + 0.01);
     }
 
+    function getAudioElement(kind, src) {
+      if (!SOUND.enabled) return null;
+      if (!SOUND[kind]) {
+        const audio = new Audio(src);
+        audio.preload = "auto";
+        SOUND[kind] = audio;
+      }
+      return SOUND[kind];
+    }
+
+    function playAudioFile(kind, src) {
+      const audio = getAudioElement(kind, src);
+      if (!audio) return false;
+      try {
+        audio.currentTime = 0;
+        const p = audio.play();
+        if (p && typeof p.catch === "function") {
+          p.catch(() => {});
+        }
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
     function playClickSound() {
       playTone({ freq: 520, duration: 0.06, type: "triangle", gain: 0.02 });
     }
@@ -341,14 +368,17 @@ export default function Home() {
     }
 
     function playRevealSound() {
-      playTone({ freq: 480, duration: 0.07, type: "square", gain: 0.025 });
-      playTone({
-        freq: 360,
-        duration: 0.1,
-        type: "square",
-        gain: 0.02,
-        delay: 0.06,
-      });
+      const ok = playAudioFile("revealAudio", "/sounds/reveal.mp3");
+      if (!ok) {
+        playTone({ freq: 480, duration: 0.07, type: "square", gain: 0.025 });
+        playTone({
+          freq: 360,
+          duration: 0.1,
+          type: "square",
+          gain: 0.02,
+          delay: 0.06,
+        });
+      }
     }
 
     function playCorrectSound() {
@@ -374,7 +404,10 @@ export default function Home() {
     }
 
     function playCountdownTickSound() {
-      playTone({ freq: 900, duration: 0.04, type: "square", gain: 0.018 });
+      const ok = playAudioFile("timerAudio", "/sounds/timer.mp3");
+      if (!ok) {
+        playTone({ freq: 900, duration: 0.04, type: "square", gain: 0.018 });
+      }
     }
 
     function playGameOverSound() {
