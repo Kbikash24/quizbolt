@@ -246,6 +246,11 @@ export default function Home() {
       timerAudio: null,
       revealAudio: null,
       joinAudio: null,
+      clickAudio: null,
+      correctAudio: null,
+      wrongAudio: null,
+      countdownAudio: null,
+      ansRevealAudio: null,
       uiClickHandler: null,
     };
 
@@ -349,14 +354,17 @@ export default function Home() {
       const now = Date.now();
       if (now - S.lastUiClickSoundAt < 80) return;
       S.lastUiClickSoundAt = now;
-      playTone({ freq: 620, duration: 0.045, type: "triangle", gain: 0.04 });
-      playTone({
-        freq: 780,
-        duration: 0.04,
-        type: "triangle",
-        gain: 0.03,
-        delay: 0.02,
-      });
+      const ok = playAudioFile("clickAudio", "/sounds/click.mp3");
+      if (!ok) {
+        playTone({ freq: 620, duration: 0.045, type: "triangle", gain: 0.04 });
+        playTone({
+          freq: 780,
+          duration: 0.04,
+          type: "triangle",
+          gain: 0.03,
+          delay: 0.02,
+        });
+      }
     }
 
     function attachUiClickSound() {
@@ -414,7 +422,7 @@ export default function Home() {
     }
 
     function playRevealSound() {
-      const ok = playAudioFile("revealAudio", "/sounds/reveal.mp3");
+      const ok = playAudioFile("ansRevealAudio", "/sounds/ans-reveal.mp3");
       if (!ok) {
         playTone({ freq: 480, duration: 0.07, type: "square", gain: 0.025 });
         playTone({
@@ -428,29 +436,35 @@ export default function Home() {
     }
 
     function playCorrectSound() {
-      playTone({ freq: 587, duration: 0.08, type: "sine", gain: 0.035 });
-      playTone({
-        freq: 784,
-        duration: 0.12,
-        type: "sine",
-        gain: 0.045,
-        delay: 0.08,
-      });
+      const ok = playAudioFile("correctAudio", "/sounds/correct-ans.mp3");
+      if (!ok) {
+        playTone({ freq: 587, duration: 0.08, type: "sine", gain: 0.035 });
+        playTone({
+          freq: 784,
+          duration: 0.12,
+          type: "sine",
+          gain: 0.045,
+          delay: 0.08,
+        });
+      }
     }
 
     function playWrongSound() {
-      playTone({ freq: 320, duration: 0.12, type: "sawtooth", gain: 0.03 });
-      playTone({
-        freq: 240,
-        duration: 0.14,
-        type: "sawtooth",
-        gain: 0.03,
-        delay: 0.08,
-      });
+      const ok = playAudioFile("wrongAudio", "/sounds/incorrect-ans.mp3");
+      if (!ok) {
+        playTone({ freq: 320, duration: 0.12, type: "sawtooth", gain: 0.03 });
+        playTone({
+          freq: 240,
+          duration: 0.14,
+          type: "sawtooth",
+          gain: 0.03,
+          delay: 0.08,
+        });
+      }
     }
 
     function playCountdownTickSound() {
-      const ok = playAudioFile("timerAudio", "/sounds/timer.mp3");
+      const ok = playAudioFile("countdownAudio", "/sounds/countdown.mp3");
       if (!ok) {
         playTone({ freq: 900, duration: 0.04, type: "square", gain: 0.018 });
       }
